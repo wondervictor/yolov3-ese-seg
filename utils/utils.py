@@ -269,10 +269,10 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     ByteTensor = torch.cuda.ByteTensor if pred_boxes.is_cuda else torch.ByteTensor
     FloatTensor = torch.cuda.FloatTensor if pred_boxes.is_cuda else torch.FloatTensor
 
-    nB = pred_boxes.size(0)
-    nA = pred_boxes.size(1)
-    nC = pred_cls.size(-1)
-    nG = pred_boxes.size(2)
+    nB = pred_boxes.size(0)  # batch size
+    nA = pred_boxes.size(1)  # number of anchors
+    nC = pred_cls.size(-1)   # number of classes
+    nG = pred_boxes.size(2)  # grid size
 
     # Output tensors
     obj_mask = ByteTensor(nB, nA, nG, nG).fill_(0)
@@ -284,9 +284,13 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     tw = FloatTensor(nB, nA, nG, nG).fill_(0)
     th = FloatTensor(nB, nA, nG, nG).fill_(0)
     tcls = FloatTensor(nB, nA, nG, nG, nC).fill_(0)
+    tcoef_centers = FloatTensor(nB, nA, nG, nG, 2).fill_(0)
+    tcoef = FloatTensor(nB, nA, nG, nG, 18).fill_(0)
 
     # Convert to position relative to box
     target_boxes = target[:, 2:6] * nG
+    gt_coef_centers = target[:, 6:8]
+    gt_coef = target[:, 8:26]
     gxy = target_boxes[:, :2]
     gwh = target_boxes[:, 2:]
     # Get anchors with best iou
@@ -300,6 +304,10 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     # Set masks
     obj_mask[b, best_n, gj, gi] = 1
     noobj_mask[b, best_n, gj, gi] = 0
+
+    # coef
+    gt_coef_centers = gt_coef_centers * nG
+    gt_coef[:, 0] = gt_coef[:, 0] - 0.263289
 
     # Set noobj mask to zero where iou exceeds ignore threshold
     for i, anchor_ious in enumerate(ious.t()):
@@ -317,5 +325,9 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     class_mask[b, best_n, gj, gi] = (pred_cls[b, best_n, gj, gi].argmax(-1) == target_labels).float()
     iou_scores[b, best_n, gj, gi] = bbox_iou(pred_boxes[b, best_n, gj, gi], target_boxes, x1y1x2y2=False)
 
+    tcoef[b, best_n, gj, gi] = gt_coef
+    tcoef_centers[b, best_n, gj, gi, 0] = torch.log(gt_coef_centers[:, 0]/anchors[best_n][:, 0] + 1e-16)
+    tcoef_centers[b, best_n, gj, gi, 1] = torch.log(gt_coef_centers[:, 1]/anchors[best_n][:, 1] + 1e-16)
+
     tconf = obj_mask.float()
-    return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf
+    return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf, tcoef_centers, tcoef

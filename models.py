@@ -106,7 +106,7 @@ class EmptyLayer(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, img_dim=416):
+    def __init__(self, anchors, num_classes, img_dim=416, deg=8):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.num_anchors = len(anchors)
@@ -114,6 +114,7 @@ class YOLOLayer(nn.Module):
         self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
+        self.l1_loss = nn.L1Loss()
         self.obj_scale = 1
         self.noobj_scale = 100
         self.metrics = {}
@@ -144,7 +145,7 @@ class YOLOLayer(nn.Module):
         grid_size = x.size(2)
 
         prediction = (
-            x.view(num_samples, self.num_anchors, self.num_classes + 5, grid_size, grid_size)
+            x.view(num_samples, self.num_anchors, self.num_classes + 5 + 20, grid_size, grid_size)
             .permute(0, 1, 3, 4, 2)
             .contiguous()
         )
@@ -155,7 +156,11 @@ class YOLOLayer(nn.Module):
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
+        pred_cls = torch.sigmoid(prediction[..., 5:85])  # Cls pred.
+
+        # ESE-Seg
+        pred_coef_centers = prediction[..., 85:87]  # coef centers
+        pred_coef = prediction[87: 105]
 
         # If grid size does not match current we compute new offsets
         if grid_size != self.grid_size:
@@ -168,11 +173,23 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
 
+        out_coef_centers = FloatTensor(pred_coef_centers.shape)
+        out_coef_centers[..., 0] = torch.exp(pred_coef_centers[..., 0].data) * self.anchor_w
+        out_coef_centers[..., 1] = torch.exp(pred_coef_centers[..., 1].data) * self.anchor_h
+
+        out_coef = FloatTensor(pred_coef.shape)
+        out_coef = pred_coef
+        out_coef[..., 0] = out_coef[..., 0] + 0.263289
+
+        out_coef_centers = out_coef_centers + (pred_boxes[..., :2] - pred_boxes[..., 2:]/2.0)
+
         output = torch.cat(
             (
                 pred_boxes.view(num_samples, -1, 4) * self.stride,
                 pred_conf.view(num_samples, -1, 1),
                 pred_cls.view(num_samples, -1, self.num_classes),
+                out_coef_centers.view(num_samples, -1, 2) * self.stride,
+                out_coef.view(num_samples, -1, 18)
             ),
             -1,
         )
@@ -180,7 +197,7 @@ class YOLOLayer(nn.Module):
         if targets is None:
             return output, 0
         else:
-            iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf = build_targets(
+            iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf, tcoef_centers, tcoef = build_targets(
                 pred_boxes=pred_boxes,
                 pred_cls=pred_cls,
                 target=targets,
@@ -197,7 +214,11 @@ class YOLOLayer(nn.Module):
             loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
             loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
             loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
-            total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
+
+            loss_coef = self.l1_loss(pred_coef, tcoef)
+            loss_coef_center = self.l1_loss(pred_coef_centers, tcoef_centers)
+
+            total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls + loss_coef_center + loss_coef
 
             # Metrics
             cls_acc = 100 * class_mask[obj_mask].mean()
@@ -220,6 +241,8 @@ class YOLOLayer(nn.Module):
                 "conf": to_cpu(loss_conf).item(),
                 "cls": to_cpu(loss_cls).item(),
                 "cls_acc": to_cpu(cls_acc).item(),
+                "coef": to_cpu(loss_coef).item(),
+                "coef_center": to_cpu(loss_coef_center).item(),
                 "recall50": to_cpu(recall50).item(),
                 "recall75": to_cpu(recall75).item(),
                 "precision": to_cpu(precision).item(),
