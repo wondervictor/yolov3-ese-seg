@@ -134,7 +134,6 @@ class YOLOLayer(nn.Module):
         self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
 
     def forward(self, x, targets=None, img_dim=None):
-
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
@@ -160,7 +159,7 @@ class YOLOLayer(nn.Module):
 
         # ESE-Seg
         pred_coef_centers = prediction[..., 85:87]  # coef centers
-        pred_coef = prediction[87: 105]
+        pred_coef = prediction[..., 87: 105]
 
         # If grid size does not match current we compute new offsets
         if grid_size != self.grid_size:
@@ -177,11 +176,19 @@ class YOLOLayer(nn.Module):
         out_coef_centers[..., 0] = torch.exp(pred_coef_centers[..., 0].data) * self.anchor_w
         out_coef_centers[..., 1] = torch.exp(pred_coef_centers[..., 1].data) * self.anchor_h
 
-        out_coef = FloatTensor(pred_coef.shape)
-        out_coef = pred_coef
+        # out_coef = FloatTensor(pred_coef.shape)
+        out_coef = pred_coef.clone()
         out_coef[..., 0] = out_coef[..., 0] + 0.263289
 
         out_coef_centers = out_coef_centers + (pred_boxes[..., :2] - pred_boxes[..., 2:]/2.0)
+
+        # out_boxes = pred_boxes.clone()
+        # out_boxes = out_boxes.view(num_samples, -1, 4) * self.stride
+        # wh = out_boxes[..., 2:]
+        # xy = out_boxes[..., :2]
+        #
+        # out_boxes[..., :2] = xy - wh/2
+        # out_boxes[..., 2:] = xy + wh/2
 
         output = torch.cat(
             (
