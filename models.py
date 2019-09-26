@@ -222,8 +222,8 @@ class YOLOLayer(nn.Module):
             loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
             loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
 
-            loss_coef = self.l1_loss(pred_coef, tcoef)
-            loss_coef_center = self.l1_loss(pred_coef_centers, tcoef_centers)
+            loss_coef = self.l1_loss(pred_coef[obj_mask], tcoef[obj_mask])
+            loss_coef_center = self.l1_loss(pred_coef_centers[obj_mask], tcoef_centers[obj_mask])
 
             total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls + loss_coef_center + loss_coef
 

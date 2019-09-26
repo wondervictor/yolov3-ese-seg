@@ -330,7 +330,7 @@ class SBDVOCTrainDataset(Dataset):
         img = Image.open(img_path).convert('RGB')
         w, h = img.size
         img = transforms.Resize(size=(self._image_size, self._image_size))(img)
-        img = transforms.ToTensor()(img)
+        img = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(transforms.ToTensor()(img))
         input_size = (w, h)
         output_size = (self._image_size, self._image_size)
 
@@ -481,7 +481,9 @@ class SBDVOCValDataset(Dataset):
         img = Image.open(img_path).convert('RGB')
         w, h = img.size
         img = transforms.Resize(size=(self._image_size, self._image_size))(img)
-        img = transforms.ToTensor()(img)
+        img = transforms.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225])(transforms.ToTensor()(img))
         input_size = (w, h)
         output_size = (self._image_size, self._image_size)
 

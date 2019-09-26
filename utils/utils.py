@@ -239,8 +239,9 @@ def non_max_suppression2(prediction, conf_thres=0.5, nms_thres=0.4):
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
-        _, topk_index = torch.topk(image_pred[:, 4], 400)
-        image_pred = image_pred[topk_index]
+        if image_pred.shape[0] > 400:
+            _, topk_index = torch.topk(image_pred[:, 4], 400)
+            image_pred = image_pred[topk_index]
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue
@@ -285,8 +286,8 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
-        _, topk_index = torch.topk(image_pred[:, 4], 400)
-        image_pred = image_pred[topk_index]
+        # _, topk_index = torch.topk(image_pred[:, 4], 400)
+        # image_pred = image_pred[topk_index]
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue

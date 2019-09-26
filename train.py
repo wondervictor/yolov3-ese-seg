@@ -78,26 +78,33 @@ if __name__ == "__main__":
     # optimizer = torch.optim.Adam(model.parameters())
 
     metrics = [
-        "grid_size",
-        "loss",
         "x",
         "y",
         "w",
         "h",
         "conf",
         "cls",
-        "cls_acc",
-        "recall50",
-        "recall75",
-        "precision",
-        "conf_obj",
-        "conf_noobj",
+        "coef",
+        "coef_center",
     ]
+    num_iters_per_epoch = len(dataloader)
+    start_lr = 0.000001
+    base_lr = 0.001
 
+    def get_warmup_lr(epoch, iter_id, optimizer):
+        if epoch >= 5:
+            return
+        lr = start_lr + (base_lr - start_lr) * iter_id / (num_iters_per_epoch * 5)
+        for pg in optimizer.param_groups:
+            pg['lr'] = lr
+
+    iteration = 1
     for epoch in range(opt.epochs):
         model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(dataloader):
+            iteration += 1
+            get_warmup_lr(epoch, iteration, optimizer)
             batches_done = len(dataloader) * epoch + batch_i
 
             imgs = Variable(imgs.to(device))
@@ -106,43 +113,25 @@ if __name__ == "__main__":
             loss, outputs = model(imgs, targets)
             loss.backward()
 
-            if batches_done % opt.gradient_accumulations:
-                # Accumulates gradient before each step
-                optimizer.step()
-                optimizer.zero_grad()
+            # Accumulates gradient before each step
+            optimizer.step()
+            optimizer.zero_grad()
 
             # ----------------
             #   Log progress
             # ----------------
 
-            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
+            log_str = "[Epoch %d/%d, Batch %d/%d]" % (epoch, opt.epochs, batch_i, len(dataloader))
+            log_str += " Total loss: {:.5f}".format(loss.item())
 
-            metric_table = [["Metrics"]+[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]
-
-            # Log metrics at each YOLO layer
             for i, metric in enumerate(metrics):
-                formats = {m: "%.6f" for m in metrics}
-                formats["grid_size"] = "%2d"
-                formats["cls_acc"] = "%.2f%%"
-                row_metrics = [formats[metric] % yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
-                metric_table += [[metric, *row_metrics]]
-
-                # Tensorboard logging
-                tensorboard_log = []
-                for j, yolo in enumerate(model.yolo_layers):
-                    for name, metric in yolo.metrics.items():
-                        if name != "grid_size":
-                            tensorboard_log += [(f"{name}_{j+1}", metric)]
-                tensorboard_log += [("loss", loss.item())]
-                logger.list_of_scalars_summary(tensorboard_log, batches_done)
-
-            log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {loss.item()}"
+                metric_value = [yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
+                log_str += " {}: {:.5f}".format(metric, sum(metric_value))
 
             # Determine approximate time left for epoch
             epoch_batches_left = len(dataloader) - (batch_i + 1)
             time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-            log_str += f"\n---- ETA {time_left}"
+            log_str += f" ---- ETA {time_left}"
 
             print(log_str)
             model.seen += imgs.size(0)
@@ -159,7 +148,7 @@ if __name__ == "__main__":
                 model,
                 opt.root,
                 iou_thres=0.5,
-                conf_thres=0.5,
+                conf_thres=0.01,
                 nms_thres=0.5,
                 img_size=opt.img_size,
                 batch_size=8,
