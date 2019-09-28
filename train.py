@@ -73,8 +73,8 @@ if __name__ == "__main__":
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.SGD(params=model.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[160, 180], gamma=0.1)
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=0.0005, momentum=0.9, weight_decay=5e-4)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[120, 180], gamma=0.1)
     # optimizer = torch.optim.Adam(model.parameters())
 
     metrics = [
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     ]
     num_iters_per_epoch = len(dataloader)
     start_lr = 0.000001
-    base_lr = 0.001
+    base_lr = 0.0005
 
     def get_warmup_lr(epoch, iter_id, optimizer):
         if epoch >= 5:
@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 model,
                 opt.root,
                 iou_thres=0.5,
-                conf_thres=0.01,
+                conf_thres=0.3,
                 nms_thres=0.5,
                 img_size=opt.img_size,
                 batch_size=8,
