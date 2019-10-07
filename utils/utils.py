@@ -163,7 +163,7 @@ def get_batch_statistics(outputs, targets, iou_threshold):
         target_labels = annotations[:, 0] if len(annotations) else []
         if len(annotations):
             detected_boxes = []
-            target_boxes = annotations[:, 1:]
+            target_boxes = annotations[:, 1:5]
 
             for pred_i, (pred_box, pred_label) in enumerate(zip(pred_boxes, pred_labels)):
 
@@ -246,11 +246,11 @@ def non_max_suppression2(prediction, conf_thres=0.5, nms_thres=0.4):
         if not image_pred.size(0):
             continue
         # Object confidence times class confidence
-        score = image_pred[:, 4] * image_pred[:, 5:].max(1)[0]
-        # Sort by it
-        image_pred = image_pred[(-score).argsort()]
-        class_confs, class_preds = image_pred[:, 5:85].max(1, keepdim=True)
-        detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float(), image_pred[:, 85:]), 1)
+        # score = image_pred[:, 4] * image_pred[:, 5:25].max(1)[0]
+        # # Sort by it
+        # image_pred = image_pred[(-score).argsort()]
+        class_confs, class_preds = image_pred[:, 5:25].max(1, keepdim=True)
+        detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float(), image_pred[:, 25:]), 1)
         # Perform non-maximum suppression
 
         _, keep_ind = nms(image_pred[:, :5], iou_thr=nms_thres)
@@ -292,11 +292,11 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
         if not image_pred.size(0):
             continue
         # Object confidence times class confidence
-        score = image_pred[:, 4] * image_pred[:, 5:].max(1)[0]
+        score = image_pred[:, 4] * image_pred[:, 5:25].max(1)[0]
         # Sort by it
         image_pred = image_pred[(-score).argsort()]
-        class_confs, class_preds = image_pred[:, 5:85].max(1, keepdim=True)
-        detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float(), image_pred[:, 85:]), 1)
+        class_confs, class_preds = image_pred[:, 5:25].max(1, keepdim=True)
+        detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float(), image_pred[:, 25:]), 1)
         # Perform non-maximum suppression
         keep_boxes = []
         while detections.size(0):

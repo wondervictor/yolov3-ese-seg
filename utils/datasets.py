@@ -104,6 +104,7 @@ def val_resize_coef(bbox, in_size, out_size):
     # bbox: [0,3] bounding box, [4, 364] polygon_x, [364, 724] polygon_y
     bbox[:, 1] = y_scale * bbox[:, 1]
     bbox[:, 3] = y_scale * bbox[:, 3]
+
     bbox[:, 0] = x_scale * bbox[:, 0]
     bbox[:, 2] = x_scale * bbox[:, 2]
 
@@ -350,6 +351,7 @@ class SBDVOCTrainDataset(Dataset):
         target[:, 4] = boxes[:, 2] - boxes[:, 0]
         target[:, 5] = boxes[:, 3] - boxes[:, 1]
         target[:, 2:6] = target[:, 2:6] / self._image_size
+
         coef_centers = label[:, 4:6] / self._image_size
         target[:, 6:8] = coef_centers
         target[:, 8:] = label[:, 6:24]

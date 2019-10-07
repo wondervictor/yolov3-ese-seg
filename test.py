@@ -69,13 +69,18 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
             bbox_preds.append(output[..., :4].data.cpu().numpy())
             prob_preds.append(output[..., 4].data.cpu().numpy())
             class_preds.append(output[..., 6].data.cpu().numpy())
-            center_preds.append(output[..., 6:8].data.cpu().numpy())
-            coef_preds.append(output[..., 8: 26].data.cpu().numpy())
+            center_preds.append(output[..., 7:9].data.cpu().numpy())
+            coef_preds.append(output[..., 9:27].data.cpu().numpy())
+            # print(coef_preds[0].shape)
+
             target = targets[targets[:, 0] == inx]
             gt_bboxes.append(target[:, 2:6].data.cpu().numpy())
             gt_points_x.append(target[:, 6:366].data.cpu().numpy())
-            gt_points_y.append(target[:, 366: 726].data.cpu().numpy())
+            gt_points_y.append(target[:, 366:726].data.cpu().numpy())
             gt_label.append(target[:, 1].data.cpu().numpy())
+
+            # embed()
+
             # print(output[..., 6].data.cpu().numpy())
             # print(output[..., 4].data.cpu().numpy())
         # print("time: ", time.time() - s)
@@ -103,8 +108,8 @@ if __name__ == "__main__":
     parser.add_argument("--weights_path", type=str, default="checkpoints/yolov3_ckpt_15.pth", help="path to weights file")
     parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
-    parser.add_argument("--conf_thres", type=float, default=0.2, help="object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.5, help="iou thresshold for non-maximum suppression")
+    parser.add_argument("--conf_thres", type=float, default=0.01, help="object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.45, help="iou thresshold for non-maximum suppression")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     opt = parser.parse_args()

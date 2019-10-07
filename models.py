@@ -116,7 +116,7 @@ class YOLOLayer(nn.Module):
         self.bce_loss = nn.BCELoss()
         self.l1_loss = nn.L1Loss()
         self.obj_scale = 1
-        self.noobj_scale = 100
+        self.noobj_scale = 1
         self.metrics = {}
         self.img_dim = img_dim
         self.grid_size = 0  # grid size
@@ -155,11 +155,11 @@ class YOLOLayer(nn.Module):
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:85])  # Cls pred.
+        pred_cls = torch.sigmoid(prediction[..., 5:25])  # Cls pred.
 
         # ESE-Seg
-        pred_coef_centers = prediction[..., 85:87]  # coef centers
-        pred_coef = prediction[..., 87: 105]
+        pred_coef_centers = prediction[..., 25:27]  # coef centers
+        pred_coef = prediction[..., 27: 45]
 
         # If grid size does not match current we compute new offsets
         if grid_size != self.grid_size:
@@ -180,7 +180,7 @@ class YOLOLayer(nn.Module):
         out_coef = pred_coef.clone()
         out_coef[..., 0] = out_coef[..., 0] + 0.263289
 
-        out_coef_centers = out_coef_centers + (pred_boxes[..., :2] - pred_boxes[..., 2:]/2.0)
+        # out_coef_centers = out_coef_centers + (pred_boxes[..., :2] - pred_boxes[..., 2:]/2.0)
 
         # out_boxes = pred_boxes.clone()
         # out_boxes = out_boxes.view(num_samples, -1, 4) * self.stride
